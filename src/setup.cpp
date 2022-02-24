@@ -49,7 +49,8 @@ main (int argc, char **argv)
     ros::init (argc, argv, "setup_scanner");
 
     ros::NodeHandle nh; // can sub and pub use the same NodeHandle?
-    ros::Subscriber sub = nh.subscribe("/kinect2/qhd/points", 1 , callback);
+//    ros::Subscriber sub = nh.subscribe("/kinect2/qhd/points", 1 , callback);
+    ros::Subscriber sub = nh.subscribe("/realsense/depth/points", 1 , callback);
     // ros::Publisher pub = nh.advertise<std_msgs::Inst64> ("pcd_save_done", 1);
 
     // set up visualizer

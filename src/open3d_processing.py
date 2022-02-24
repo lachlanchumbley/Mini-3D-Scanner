@@ -24,14 +24,14 @@ class registerMulti:
         self.registrationCount = 0
         self.posWorldTrans = np.identity(4)
         self.posLocalTrans = np.identity(4)
-# test for loop detection info
+        # test for loop detection info
         self.detectTransLoop = np.identity(4)
-# queue_size should be a little bit big, cause processing speed is not quick enough
-        self.sub = rospy.Subscriber("pcd_save_done", Int64, self.callback, queue_size = 10)
+        # queue_size should be a little bit big, cause processing speed is not quick enough
+        self.sub = rospy.Subscriber("pcd_save_done", Int64, self.callback, queue_size=10)
 
         self.rotation_dir = Vector3()
         self.rotation_dir_init_flag = False
-        self.sub_rotation_dir = rospy.Subscriber("plane_normal", Vector3, self.callback_dir, queue_size = 10)
+        self.sub_rotation_dir = rospy.Subscriber("plane_normal", Vector3, self.callback_dir, queue_size=10)
 
     def callback(self, num):
         self.cloud_index = num.data
@@ -43,13 +43,13 @@ class registerMulti:
 
     def registering(self):
         # print(self.initFlag)
-        if self.initFlag == False:  # not the first cloud
+        if not self.initFlag:  # not the first cloud
             # read the new cloud
             print("----------------")
             print("Have registered {} clouds;".format(self.registrationCount))
             print("Processing cloud {}...".format(self.cloud_index))
 
-            self.cloud2 = read_point_cloud("/home/dylan2/catkin_ws/src/scanner/data/{}.pcd".format(self.cloud_index))
+            self.cloud2 = read_point_cloud("/home/new_ws/src/3d_scanner/data/{}.pcd".format(self.cloud_index))
             # self.cloud1 = read_point_cloud("/home/dylan2/catkin_ws/src/temp/pointCloudInRviz/data/{}.pcd".format(self.cloud_index-1))
 
             # get local transformation between two lastest clouds
@@ -62,12 +62,12 @@ class registerMulti:
             # if result is not good, drop it
             if self.goodResultFlag == True:
                 # self.posLocalTrans = tempTrans
-# test for loop detection info
+                # test for loop detection info
                 self.detectTransLoop = np.dot(self.posLocalTrans,self.detectTransLoop)
                 # print ("==== loop detect trans ====")
                 # print(self.detectTransLoop)
                 # print ("==== ==== ==== ==== ==== ====")
-                self.posWorldTrans =  np.dot(self.posWorldTrans, self.posLocalTrans)
+                self.posWorldTrans = np.dot(self.posWorldTrans, self.posLocalTrans)
                 # update latest cloud
                 self.cloud1 = copy.deepcopy(self.cloud2)
                 self.cloud2.transform(self.posWorldTrans)
@@ -78,16 +78,16 @@ class registerMulti:
 
                 self.registrationCount += 1
                 # save PCD file to local
-                write_point_cloud("/home/dylan2/catkin_ws/src/scanner/data/result/registerResult.pcd", self.cloud_base ,write_ascii = False)
+                write_point_cloud("/home/new_ws/src/3d_scanner/data/result/registerResult.pcd", self.cloud_base ,write_ascii = False)
 
             else:
                 pass
 
         # the first cloud
         else:
-            self.cloud_base = read_point_cloud("/home/dylan2/catkin_ws/src/scanner/data/{}.pcd".format(self.cloud_index))
+            self.cloud_base = read_point_cloud("/home/new_ws/src/3d_scanner/data/{}.pcd".format(self.cloud_index))
             self.cloud1 = copy.deepcopy(self.cloud_base)
-            write_point_cloud("/home/dylan2/catkin_ws/src/scanner/data/result/registerResult.pcd", self.cloud_base ,write_ascii = False)
+            write_point_cloud("/home/new_ws/src/3d_scanner/data/result/registerResult.pcd", self.cloud_base ,write_ascii = False)
             if (self.rotation_dir_init_flag == True):
                 self.initFlag = False
 
@@ -112,6 +112,7 @@ class registerMulti:
             radius = 0.1, max_nn = 30))
 
         current_transformation = np.identity(4);
+
         # use Point-to-plane ICP registeration to obtain initial pose guess
         result_icp_p2l = registration_icp(source_temp, target_temp, 0.02,
                 current_transformation, TransformationEstimationPointToPlane())

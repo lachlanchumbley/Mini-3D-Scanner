@@ -29,7 +29,7 @@ callback(sensor_msgs::PointCloud2 cloud_raw)
     // cloud_raw is PC data from Kinect V2;
     // static int pcd_index = 0;
     pcl::PointCloud<PointT>::Ptr cloud_ptr (new pcl::PointCloud<PointT>);
-    std::string filename = "/home/dylan2/catkin_ws/src/scanner/data/" + std::to_string(pcd_index) + ".pcd";
+    std::string filename = "/home/new_ws/src/3d_scanner/data/" + std::to_string(pcd_index) + ".pcd";
 
     ROS_INFO("Processing #%i PointCloud...", pcd_index);
 
@@ -53,7 +53,8 @@ main (int argc, char **argv)
     ros::init (argc, argv, "pcl_processing");
 
     ros::NodeHandle nh; // can sub and pub use the same NodeHandle?
-    ros::Subscriber sub = nh.subscribe("/kinect2/qhd/points", 1 , callback);
+//    ros::Subscriber sub = nh.subscribe("/kinect2/qhd/points", 1 , callback);
+    ros::Subscriber sub = nh.subscribe("/realsense/depth/points", 1 , callback);
     ros::Publisher pub = nh.advertise<std_msgs::Int64> ("pcd_save_done", 1);
 
     ros::Rate loop_rate(1);
