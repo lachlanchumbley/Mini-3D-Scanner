@@ -1,12 +1,13 @@
 <launch>
 
-    <node name="rotation_dir" pkg="scanner" type="rotation_dir" />
+    <node name="rotation_dir" pkg="scanner" type="rotation_dir" output="screen" />
 
-    <node name="pcl_processing" pkg="scanner" type="pcl_processing" />
-    <node name="open3d_processing" pkg="scanner" type="open3d_processing.py" />
+    <node name="pcl_processing" pkg="scanner" type="pcl_processing" output="screen" />
+    <node name="open3d_processing" pkg="scanner" type="open3d_processing.py" output="screen" /> 
 
-    <node name="showRegResultOnline" pkg="scanner" type="showRegResultOnline" respawn="true"/>
+    <node name="showRegResultOnline" pkg="scanner" type="showRegResultOnline" respawn="true" output="screen" />
 
+    <!-- <node name="setup" pkg="scanner" type="setup" respawn="true" output="screen" /> -->
 
 </launch>
 

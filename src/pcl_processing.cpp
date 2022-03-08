@@ -16,6 +16,11 @@
 
 #include <Eigen/Eigen>
 
+#include <iterator>
+#include <vector>
+
+#include <pcl/visualization/cloud_viewer.h>
+
 typedef pcl::PointXYZRGBA PointT;
 static int pcd_index = 0;
 static char gotDataFlag = 0;// could use a 'class' to reduce this global variable
@@ -26,21 +31,37 @@ cloud_filter(pcl::PointCloud<PointT>::Ptr &cloud);
 void
 callback(sensor_msgs::PointCloud2 cloud_raw)
 {
+    // auto data = cloud_raw.data;
+    // std::vector<int> v(std::begin(data), std::end(data));
+    // for (int i = 0; i < v.size(); i++) {
+    //   std::cout << v[i] << "\n";
+    // }
+    // int width = cloud_raw.width;
+    // ROS_INFO("raw cloud height: %d", width);
     // cloud_raw is PC data from Kinect V2;
     // static int pcd_index = 0;
     pcl::PointCloud<PointT>::Ptr cloud_ptr (new pcl::PointCloud<PointT>);
-    std::string filename = "/home/new_ws/src/3d_scanner/data/" + std::to_string(pcd_index) + ".pcd";
+    std::string filename = "/home/lachlan/catkin_ws/src/scanner/data/" + std::to_string(pcd_index) + ".pcd";
 
-    ROS_INFO("Processing #%i PointCloud...", pcd_index);
+    // ROS_INFO("Processing #%i PointCloud...", pcd_index);
 
     // change PC format from PointCloud2 to pcl::PointCloud<PointT>
     pcl::fromROSMsg(cloud_raw, *cloud_ptr);
 
+    // TEST SAVE (failed)
+    // std::string name = "/home/lachlan/catkin_ws/src/scanner/data/TEST.pcd";
+    // pcl::io::savePCDFileBinary(name, *cloud_ptr);
+
     // crop, segment, filter
     cloud_ptr = cloud_filter(cloud_ptr);
 
+    // Check PCL has size (it does)    
+    // int size = cloud_ptr->size();
+    // ROS_INFO("size: %d", size);
+
     // save PCD file to local folder
-    pcl::io::savePCDFileBinary (filename, *cloud_ptr);
+    pcl::io::savePCDFileBinary(filename, *cloud_ptr);  // ERROR
+    // ROS_INFO("Post-save");
 
     gotDataFlag = 1;
     ++pcd_index;
@@ -50,11 +71,12 @@ callback(sensor_msgs::PointCloud2 cloud_raw)
 int
 main (int argc, char **argv)
 {
+    
     ros::init (argc, argv, "pcl_processing");
 
     ros::NodeHandle nh; // can sub and pub use the same NodeHandle?
-//    ros::Subscriber sub = nh.subscribe("/kinect2/qhd/points", 1 , callback);
-    ros::Subscriber sub = nh.subscribe("/realsense/depth/points", 1 , callback);
+    ros::Subscriber sub = nh.subscribe("/kinect2/qhd/points", 1 , callback);
+    // ros::Subscriber sub = nh.subscribe("/realsense/depth/points", 1 , callback);
     ros::Publisher pub = nh.advertise<std_msgs::Int64> ("pcd_save_done", 1);
 
     ros::Rate loop_rate(1);
@@ -66,6 +88,10 @@ main (int argc, char **argv)
         // ss.str("");
         // ss << "have saved pcd #" << pcd_index ;
         // msg.data = ss.str();
+
+        // cout << "\nPress Enter to Continue";
+        cin.ignore();
+
         number_PCDdone.data = pcd_index;
 
         // ros::spin()
@@ -93,7 +119,9 @@ cloud_filter(pcl::PointCloud<PointT>::Ptr &cloud)
     pcl::PassThrough<PointT> passz;
     passz.setInputCloud (cloud);
     passz.setFilterFieldName ("z");
-    passz.setFilterLimits (0.75, 1.0);
+    passz.setFilterLimits (0.35, 0.50);
+    // passz.setFilterLimits (0, 2.0);
+
     // passz.setFilterLimits (0.5, 1.5);
 
     // passz.setFilterLimits (-2.0, 4.0);
@@ -103,7 +131,7 @@ cloud_filter(pcl::PointCloud<PointT>::Ptr &cloud)
     pcl::PassThrough<PointT> passy;
     passy.setInputCloud (cloud_filtered);
     passy.setFilterFieldName ("y");
-    passy.setFilterLimits (-0.1, 0.22);
+    passy.setFilterLimits (-0.25, 0.15);
     // passy.setFilterLimits (-0.5, 0.5);
 
     // passy.setFilterLimits (-2.0, 2.0);
@@ -113,7 +141,7 @@ cloud_filter(pcl::PointCloud<PointT>::Ptr &cloud)
     pcl::PassThrough<PointT> passx;
     passx.setInputCloud (cloud_filtered);
     passx.setFilterFieldName ("x");
-    passx.setFilterLimits (-0.18, 0.18);
+    passx.setFilterLimits (-0.15, 0.15);
     // passx.setFilterLimits (-0.5, 0.5);
 
     // passx.setFilterLimits (-3.0, 3.0);
@@ -149,6 +177,7 @@ cloud_filter(pcl::PointCloud<PointT>::Ptr &cloud)
 
   //****************************************************//
     // Create the filtering object - StatisticalOutlierRemoval filter
+    // -------- UNCOMMENT THIS --------------------
     pcl::StatisticalOutlierRemoval<PointT> sor;
     sor.setInputCloud (cloud_filtered);
     sor.setMeanK (50);
@@ -162,6 +191,15 @@ cloud_filter(pcl::PointCloud<PointT>::Ptr &cloud)
     // cloud_write.height = 1;
     // cloud_write.is_dense = false;
 
+    // return cloud;
+
+    // VISUALISE
+    // pcl::visualization::CloudViewer viewer ("Simple Cloud Viewer");
+    // viewer.showCloud (cloud_filtered);
+    // while (!viewer.wasStopped ())
+    // {
+    // }
+   
     return cloud_filtered;
 
 }

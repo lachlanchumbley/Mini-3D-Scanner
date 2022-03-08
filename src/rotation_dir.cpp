@@ -42,14 +42,14 @@ callback(std_msgs::Int64 num)
         std::string filename1, filename2;
         Normal norm1, norm2;
 
-        filename1 = "/home/new_ws/src/3d_scanner/data/" + std::to_string(pcd_index-1) + ".pcd";
+        filename1 = "/home/lachlan/catkin_ws/src/scanner/data/" + std::to_string(pcd_index-1) + ".pcd";
         if (pcl::io::loadPCDFile<PointT> (filename1, *cloud_ptr) == -1) return ;
         norm1 = plane_normal(cloud_ptr);
         std::cout << "norm1 x: " << norm1.x << std::endl;
         std::cout << "norm1 y: " << norm1.y << std::endl;
         std::cout << "norm1 z: " << norm1.z << std::endl;
 
-        filename2 = "/home/new_ws/src/3d_scanner/data/" + std::to_string(pcd_index) + ".pcd";
+        filename2 = "/home/lachlan/catkin_ws/src/scanner/data/" + std::to_string(pcd_index) + ".pcd";
         if (pcl::io::loadPCDFile<PointT> (filename2, *cloud_ptr) == -1) return ;
         norm2 = plane_normal(cloud_ptr);
         std::cout << "norm2 x: " << norm2.x << std::endl;

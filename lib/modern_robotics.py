@@ -160,7 +160,7 @@ Output:
         acosinput = (np.trace(R) - 1) / 2.0
         if acosinput > 1:
             acosinput = 1
-	elif acosinput < -1:
+        elif acosinput < -1:
             acosinput = -1		
         theta = acos(acosinput)
         return theta / 2.0 / sin(theta) * (R - np.array(R).T)
@@ -358,7 +358,7 @@ Output:
         acosinput = (np.trace(R) - 1) / 2.0
         if acosinput > 1:
             acosinput = 1
-	elif acosinput < -1:
+        elif acosinput < -1: ## CHANGE
             acosinput = -1		
         theta = acos(acosinput)       
         omgmat = MatrixLog3(R) 
@@ -704,7 +704,7 @@ Output:
              + np.dot(np.array(Glist[i]),Vdi[:,i + 1]) \
              - np.dot(np.array(ad(Vi[:,i + 1])).T, \
                       np.dot(np.array(Glist[i]),Vi[:,i + 1]))
-	taulist[i] = np.dot(np.array(Fi).T,Ai[:,i])
+    taulist[i] = np.dot(np.array(Fi).T,Ai[:,i])
     return taulist
 
 def MassMatrix(thetalist,Mlist,Glist,Slist):

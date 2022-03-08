@@ -49,8 +49,8 @@ main (int argc, char **argv)
     ros::init (argc, argv, "setup_scanner");
 
     ros::NodeHandle nh; // can sub and pub use the same NodeHandle?
-//    ros::Subscriber sub = nh.subscribe("/kinect2/qhd/points", 1 , callback);
-    ros::Subscriber sub = nh.subscribe("/realsense/depth/points", 1 , callback);
+    ros::Subscriber sub = nh.subscribe("/kinect2/qhd/points", 1 , callback);
+    // ros::Subscriber sub = nh.subscribe("/realsense/depth/points", 1 , callback);
     // ros::Publisher pub = nh.advertise<std_msgs::Inst64> ("pcd_save_done", 1);
 
     // set up visualizer
@@ -82,10 +82,17 @@ cloud_filter(pcl::PointCloud<PointT>::Ptr &cloud)
 
   //****************************************************//
     // Create the filtering object - passthrough
+    float zMin = 0.35;
+    // cout << "Please enter a meanK value (0.35): ";
+    // cin >> zMin;
+    float zMax = 0.50;
+    // cout << "Please enter a meanK value (0.50): ";
+    // cin >> zMax;
+
     pcl::PassThrough<PointT> passz;
     passz.setInputCloud (cloud);
     passz.setFilterFieldName ("z");
-    passz.setFilterLimits (0.75, 1.0);
+    passz.setFilterLimits (zMin, zMax);
 
 
     // passz.setFilterLimits (-2.0, 4.0);
@@ -95,7 +102,7 @@ cloud_filter(pcl::PointCloud<PointT>::Ptr &cloud)
     pcl::PassThrough<PointT> passy;
     passy.setInputCloud (cloud_filtered);
     passy.setFilterFieldName ("y");
-    passy.setFilterLimits (-0.1, 0.22);
+    passy.setFilterLimits (-0.25, 0.15);
 
     // passy.setFilterLimits (-2.0, 2.0);
     //pass.setFilterLimitsNegative (true);
@@ -104,7 +111,7 @@ cloud_filter(pcl::PointCloud<PointT>::Ptr &cloud)
     pcl::PassThrough<PointT> passx;
     passx.setInputCloud (cloud_filtered);
     passx.setFilterFieldName ("x");
-    passx.setFilterLimits (-0.18, 0.18);
+    passx.setFilterLimits (-0.15, 0.15);
 
     // passx.setFilterLimits (-3.0, 3.0);
     //pass.setFilterLimitsNegative (true);
@@ -139,18 +146,20 @@ cloud_filter(pcl::PointCloud<PointT>::Ptr &cloud)
 
   //****************************************************//
     // Create the filtering object - StatisticalOutlierRemoval filter
+    int meanK = 50;
+    float thresh = 0.5;
+    // cout << "Please enter a meanK value (50): ";
+    // cin >> meanK;
+    // cout << "Please enter a thresh value (1.0): ";
+    // cin >> thresh;   
+
     pcl::StatisticalOutlierRemoval<PointT> sor;
     sor.setInputCloud (cloud_filtered);
-    sor.setMeanK (50);
-    sor.setStddevMulThresh (1.0);
+    sor.setMeanK (meanK);
+    sor.setStddevMulThresh (thresh); // 1.0
     sor.filter (*cloud_filtered);
 
   //****************************************************//
-
-    // pcl::PointCloud<PointT>::Ptr cloud_write (new pcl::PointCloud<PointT>);
-    // cloud_write.width = cloud_filtered.points.size();
-    // cloud_write.height = 1;
-    // cloud_write.is_dense = false;
 
     return cloud_filtered;
 

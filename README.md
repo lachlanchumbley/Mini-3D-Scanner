@@ -94,8 +94,23 @@ Tips:
 - numpy (Python)
 
 Intsructions for use:
-1. In a ROS environment, command `$ roslaunch kinect_bridge kinect_bridge.launch` to connect Kinect V2 thtough *iai_kinect2*;
+1. In a ROS environment, command unch kinect_bridge kinect_bridge.launch` to connect Kinect V2 thtough *iai_kinect2*;
 2. Command `$ roslaunch scanner pipeline.launch` to run the pipeline.
 3. Intermediate PCD files are saved in **./data/** folder, and the final reconstruction PCD file is in **./data/result/** folder.
 
+Lach instructions:
+1. Move into ROS env: `cd catkin_ws/`
+2. To activate ROS env: `source devel/setup.bash`
+- Check using `echo $ROS_PACKAGE_PATH` and output should be:
+/home/youruser/catkin_ws/src:/opt/ros/kinetic/share
+3. `roslaunch kinect2_bridge kinect2_bridge.launch`
+4. -- New tab -- 
+5. Move into ROS env: `cd catkin_ws/`
+6. To activate ROS env: `source devel/setup.bash`
+- Check using `echo $ROS_PACKAGE_PATH` and output should be:
+/home/youruser/catkin_ws/src:/opt/ros/kinetic/share
+7. `source myenv/bin/activate`
+8. `roslaunch scanner pipeline.launch`
+
+https://unix.stackexchange.com/questions/464671/why-does-pythons-pip-reset-to-version-10-0-1-in-every-new-virtual-environment
 

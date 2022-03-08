@@ -1,9 +1,12 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import rospy
 import numpy as np
 import copy
-from py3d import *
+# from open3d import *
+import open3d as o3d
+# from open3d.geometry import estimate_normals
+# from py3d import *
 
 from std_msgs.msg import Int64
 from geometry_msgs.msg import Vector3
@@ -41,6 +44,28 @@ class registerMulti:
         self.rotation_dir = temp_dir
         self.rotation_dir_init_flag = True
 
+    def clean_up(self, cloud_base):
+        cloud_base, ind = cloud_base.remove_statistical_outlier(nb_neighbors=20, std_ratio=2.0)
+
+        cloud_base, ind = cloud_base.remove_radius_outlier(nb_points=16, radius=0.05)
+
+        return cloud_base
+
+    def save_mesh(self, cloud_base):
+        # Create normals
+        cloud_base.estimate_normals(search_param = o3d.geometry.KDTreeSearchParamHybrid(radius = 0.1, max_nn = 30))
+        
+        # Create mesh
+        poisson_mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(cloud_base, depth=8, width=0, scale=1.1, linear_fit=False)[0]
+
+        # Crop out
+        bbox = cloud_base.get_axis_aligned_bounding_box()
+        p_mesh_crop = poisson_mesh.crop(bbox)
+
+        # Save mesh
+        o3d.io.write_triangle_mesh("/home/lachlan/catkin_ws/src/scanner/data/result/p_mesh_c.ply", p_mesh_crop)
+        return
+
     def registering(self):
         # print(self.initFlag)
         if not self.initFlag:  # not the first cloud
@@ -49,14 +74,16 @@ class registerMulti:
             print("Have registered {} clouds;".format(self.registrationCount))
             print("Processing cloud {}...".format(self.cloud_index))
 
-            self.cloud2 = read_point_cloud("/home/new_ws/src/3d_scanner/data/{}.pcd".format(self.cloud_index))
+            self.cloud2 = o3d.io.read_point_cloud("/home/lachlan/catkin_ws/src/scanner/data/{}.pcd".format(self.cloud_index))
             # self.cloud1 = read_point_cloud("/home/dylan2/catkin_ws/src/temp/pointCloudInRviz/data/{}.pcd".format(self.cloud_index-1))
 
             # get local transformation between two lastest clouds
             # source_temp = copy.deepcopy(self.cloud2)
             # target_temp = copy.deepcopy(self.cloud1)
             # print("cloud1: ",id(self.cloud1))
-            self.posLocalTrans = self.registerLocalCloud(self.cloud1, self.cloud2)
+
+
+            self.posLocalTrans = self.registerLocalCloudv2(self.cloud1, self.cloud2)
             # self.posLocalTrans = self.registerLocalCloud(self.cloud1, self.cloud2)
 
             # if result is not good, drop it
@@ -74,20 +101,26 @@ class registerMulti:
                 self.cloud_base = self.cloud_base + self.cloud2
 
                 # downsampling
-                self.cloud_base = voxel_down_sample(self.cloud_base ,0.001)
+                self.cloud_base = self.cloud_base.voxel_down_sample(0.001)
+                # self.cloud_base = o3d.io.voxel_down_sample(self.cloud_base ,0.001)
 
                 self.registrationCount += 1
                 # save PCD file to local
-                write_point_cloud("/home/new_ws/src/3d_scanner/data/result/registerResult.pcd", self.cloud_base ,write_ascii = False)
+                # o3d.visualization.draw_geometries([self.cloud_base])
+                o3d.io.write_point_cloud("/home/lachlan/catkin_ws/src/scanner/data/result/registerResult.pcd", self.cloud_base ,write_ascii = False)
 
+                self.cloud_base = self.clean_up(self.cloud_base)
+
+                self.save_mesh(self.cloud_base)
             else:
                 pass
 
         # the first cloud
         else:
-            self.cloud_base = read_point_cloud("/home/new_ws/src/3d_scanner/data/{}.pcd".format(self.cloud_index))
+            self.cloud_base = o3d.io.read_point_cloud("/home/lachlan/catkin_ws/src/scanner/data/{}.pcd".format(self.cloud_index))
             self.cloud1 = copy.deepcopy(self.cloud_base)
-            write_point_cloud("/home/new_ws/src/3d_scanner/data/result/registerResult.pcd", self.cloud_base ,write_ascii = False)
+            # o3d.visualization.draw_geometries([self.cloud_base])
+            o3d.io.write_point_cloud("/home/lachlan/catkin_ws/src/scanner/data/result/registerResult.pcd", self.cloud_base ,write_ascii = False)
             if (self.rotation_dir_init_flag == True):
                 self.initFlag = False
 
@@ -103,19 +136,23 @@ class registerMulti:
         # print("target_temp: ",id(target_temp))
         # source_temp = source
         # target_temp = target
-        source_temp = voxel_down_sample(source_temp ,0.004)
-        target_temp = voxel_down_sample(target_temp ,0.004)
+        source_temp.voxel_down_sample(0.004)
+        target_temp.voxel_down_sample(0.004)
+        # source_temp = voxel_down_sample(source_temp ,0.004)
+        # target_temp = voxel_down_sample(target_temp ,0.004)
 
-        estimate_normals(source_temp, search_param = KDTreeSearchParamHybrid(
-            radius = 0.1, max_nn = 30))
-        estimate_normals(target_temp, search_param = KDTreeSearchParamHybrid(
-            radius = 0.1, max_nn = 30))
+        # o3d.visualization.draw_geometries([source_temp])
 
-        current_transformation = np.identity(4);
+        source_temp.estimate_normals(search_param = o3d.geometry.KDTreeSearchParamHybrid(radius = 0.1, max_nn = 30))
+        target_temp.estimate_normals(search_param = o3d.geometry.KDTreeSearchParamHybrid(radius = 0.1, max_nn = 30))
+        # estimate_normals(source_temp, search_param = KDTreeSearchParamHybrid(radius = 0.1, max_nn = 30))
+        # estimate_normals(target_temp, search_param = KDTreeSearchParamHybrid(radius = 0.1, max_nn = 30))
+
+        current_transformation = np.identity(4)
 
         # use Point-to-plane ICP registeration to obtain initial pose guess
-        result_icp_p2l = registration_icp(source_temp, target_temp, 0.02,
-                current_transformation, TransformationEstimationPointToPlane())
+        result_icp_p2l = o3d.pipelines.registration.registration_icp(source_temp, target_temp, 0.02,
+                current_transformation, o3d.pipelines.registration.TransformationEstimationPointToPlane())
         # 0.1 is searching distance
 
         #'''TEST
@@ -124,13 +161,13 @@ class registerMulti:
         #     current_transformation, TransformationEstimationPointToPlane())
         #'''
 
-        print("----------------")
-        print("initial guess from Point-to-plane ICP registeration")
-        print(result_icp_p2l)
-        print(result_icp_p2l.transformation)
+        # print("----------------")
+        # print("initial guess from Point-to-plane ICP registeration")
+        # print(result_icp_p2l)
+        # print(result_icp_p2l.transformation)
 
         p2l_init_trans_guess = result_icp_p2l.transformation
-        print("----------------")
+        # print("----------------")
         # print("Colored point cloud registration")
 
 ################
@@ -168,8 +205,7 @@ class registerMulti:
 #################
 #### double nomral ICP
 #################
-        result_icp = registration_icp(source_temp, target_temp, 0.01,
-                p2l_init_trans_guess, TransformationEstimationPointToPlane())
+        result_icp = o3d.pipelines.registration.registration_icp(source_temp, target_temp, 0.01, p2l_init_trans_guess, o3d.pipelines.registration.TransformationEstimationPointToPlane())
 #         result_icp = registration_icp(source_temp, target_temp, 0.002,
 #                 p2l_init_trans_guess, TransformationEstimationPointToPlane(),ICPConvergenceCriteria(relative_fitness = 1e-6,relative_rmse = 1e-6, max_iteration = 50))
 # #################
@@ -179,8 +215,8 @@ class registerMulti:
 
         # result_icp = registration_colored_icp(source, target,
         #     0.02, p2l_init_trans_guess)
-        print(result_icp)
-        print(result_icp.transformation)
+        # print(result_icp)
+        # print(result_icp.transformation)
         # print(result_icp.fitness)
 
         # draw_registration_result_original_color(
@@ -273,6 +309,69 @@ class registerMulti:
         # else:
         #     self.goodResultFlag = False
         #     return np.identity(4)
+
+    def draw_registration_result_original_color(self, source, target, transformation):
+        source_temp = copy.deepcopy(source)
+        source_temp.transform(transformation)
+        o3d.visualization.draw_geometries([source_temp, target])
+                                        # zoom=0.5,
+                                        # front=[-0.2458, -0.8088, 0.5342],
+                                        # lookat=[1.7745, 2.2305, 0.9787],
+                                        # up=[0.3109, -0.5878, -0.7468])
+
+    def registerLocalCloudv2(self, target, source):
+        '''
+        function: get local transformation matrix
+        input: two clouds
+        output: transformation from target cloud to source cloud
+        '''
+
+        voxel_radius = [0.04, 0.02, 0.01]
+        max_iter = [50, 30, 14]
+        current_transformation = np.identity(4)
+        # print("3. Colored point cloud registration")
+        for scale in range(3):
+            iter = max_iter[scale]
+            radius = voxel_radius[scale]
+            # print([iter, radius, scale])
+
+            # print("3-1. Downsample with a voxel size %.2f" % radius)
+            source_down = source.voxel_down_sample(radius)
+            target_down = target.voxel_down_sample(radius)
+
+            # print("3-2. Estimate normal.")
+            source_down.estimate_normals(
+                o3d.geometry.KDTreeSearchParamHybrid(radius=radius * 2, max_nn=30))
+            target_down.estimate_normals(
+                o3d.geometry.KDTreeSearchParamHybrid(radius=radius * 2, max_nn=30))
+
+            # print("3-3. Applying colored point cloud registration")
+            result_icp = o3d.pipelines.registration.registration_colored_icp(
+                source_down, target_down, radius, current_transformation,
+                o3d.pipelines.registration.TransformationEstimationForColoredICP(),
+                o3d.pipelines.registration.ICPConvergenceCriteria(relative_fitness=1e-6,
+                                                                relative_rmse=1e-6,
+                                                                max_iteration=iter))
+            current_transformation = result_icp.transformation
+            # print(result_icp)
+
+        # self.draw_registration_result_original_color(source, target, result_icp.transformation)
+
+        # KICK OUT RULE 
+        print("Fitness score: %f", result_icp.fitness)
+
+        if result_icp.fitness > 0.9:
+            print("GOOD")
+            self.goodResultFlag = True
+            print("Press Enter to continue")
+            return current_transformation
+        else:
+            print("\n !----------- BAD  -----------! \n")
+            self.goodResultFlag = False
+            print("Press Enter to continue")
+            return np.identity(4)
+
+        
 
     def cal_angle(self,pl_norm, R_dir):
         angle_in_radians = \
