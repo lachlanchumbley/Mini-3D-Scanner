@@ -37,7 +37,8 @@ void
 callback(std_msgs::Int64 num)
 {
     int pcd_index = num.data;
-    if (pcd_index > 1){
+    if (pcd_index >= 1){
+        // ROS_INFO("Calculating Dir #%d", pcd_index);
         pcl::PointCloud<PointT>::Ptr cloud_ptr (new pcl::PointCloud<PointT>);
         std::string filename1, filename2;
         Normal norm1, norm2;
@@ -45,19 +46,19 @@ callback(std_msgs::Int64 num)
         filename1 = "/home/lachlan/catkin_ws/src/scanner/data/" + std::to_string(pcd_index-1) + ".pcd";
         if (pcl::io::loadPCDFile<PointT> (filename1, *cloud_ptr) == -1) return ;
         norm1 = plane_normal(cloud_ptr);
-        std::cout << "norm1 x: " << norm1.x << std::endl;
-        std::cout << "norm1 y: " << norm1.y << std::endl;
-        std::cout << "norm1 z: " << norm1.z << std::endl;
+        // std::cout << "norm1 x: " << norm1.x << std::endl;
+        // std::cout << "norm1 y: " << norm1.y << std::endl;
+        // std::cout << "norm1 z: " << norm1.z << std::endl;
 
         filename2 = "/home/lachlan/catkin_ws/src/scanner/data/" + std::to_string(pcd_index) + ".pcd";
         if (pcl::io::loadPCDFile<PointT> (filename2, *cloud_ptr) == -1) return ;
         norm2 = plane_normal(cloud_ptr);
-        std::cout << "norm2 x: " << norm2.x << std::endl;
-        std::cout << "norm2 y: " << norm2.y << std::endl;
-        std::cout << "norm2 z: " << norm2.z << std::endl;
+        // std::cout << "norm2 x: " << norm2.x << std::endl;
+        // std::cout << "norm2 y: " << norm2.y << std::endl;
+        // std::cout << "norm2 z: " << norm2.z << std::endl;
 
         float angle_radians = cal_angle(norm1, norm2);
-        std::cout << "angle is (in radians):" << angle_radians << std::endl;
+        // std::cout << "angle is (in radians):" << angle_radians << std::endl;
         if (angle_radians < 0.05){
             // about 3 degrees
             task_done = 1;
@@ -87,30 +88,32 @@ main (int argc, char **argv)
     {
         ros::spinOnce();
         loop_rate.sleep();
+        // ROS_INFO("dir loop");
         if (task_done == 1) {
+            // ROS_INFO("publish");
             pub.publish(normal_final);
 
-            loop_rate.sleep();
-            loop_rate.sleep();
-            loop_rate.sleep();
-            loop_rate.sleep();
-            loop_rate.sleep();
-            loop_rate.sleep();
-            loop_rate.sleep();
-            loop_rate.sleep();
-            loop_rate.sleep();
-            loop_rate.sleep();
-            loop_rate.sleep();
-            loop_rate.sleep();
-            loop_rate.sleep();
-            loop_rate.sleep();
-            loop_rate.sleep();
-            loop_rate.sleep();
-            loop_rate.sleep();
-            loop_rate.sleep();
-            loop_rate.sleep();
-            loop_rate.sleep();
-            loop_rate.sleep();
+            // loop_rate.sleep();
+            // loop_rate.sleep();
+            // loop_rate.sleep();
+            // loop_rate.sleep();
+            // loop_rate.sleep();
+            // loop_rate.sleep();
+            // loop_rate.sleep();
+            // loop_rate.sleep();
+            // loop_rate.sleep();
+            // loop_rate.sleep();
+            // loop_rate.sleep();
+            // loop_rate.sleep();
+            // loop_rate.sleep();
+            // loop_rate.sleep();
+            // loop_rate.sleep();
+            // loop_rate.sleep();
+            // loop_rate.sleep();
+            // loop_rate.sleep();
+            // loop_rate.sleep();
+            // loop_rate.sleep();
+            // loop_rate.sleep();
             return 0;
         }
     }

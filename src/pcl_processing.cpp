@@ -24,9 +24,16 @@
 typedef pcl::PointXYZRGBA PointT;
 static int pcd_index = 0;
 static char gotDataFlag = 0;// could use a 'class' to reduce this global variable
+static int pcl_registered_flag = 1;
 
 pcl::PointCloud<PointT>::Ptr
 cloud_filter(pcl::PointCloud<PointT>::Ptr &cloud);
+
+void
+reg_callback(std_msgs::Int64 msg)
+{
+  pcl_registered_flag = msg.data;
+}
 
 void
 callback(sensor_msgs::PointCloud2 cloud_raw)
@@ -64,7 +71,11 @@ callback(sensor_msgs::PointCloud2 cloud_raw)
     // ROS_INFO("Post-save");
 
     gotDataFlag = 1;
-    ++pcd_index;
+
+    // cout << "\nPress Enter to Continue";
+    // cin.ignore();
+
+    // ++pcd_index;
 }
 
 
@@ -79,6 +90,8 @@ main (int argc, char **argv)
     // ros::Subscriber sub = nh.subscribe("/realsense/depth/points", 1 , callback);
     ros::Publisher pub = nh.advertise<std_msgs::Int64> ("pcd_save_done", 1);
 
+    ros::Subscriber reg_sub = nh.subscribe("pcl_registered", 1 , reg_callback);
+
     ros::Rate loop_rate(1);
     std_msgs::Int64 number_PCDdone;
     // std::stringstream ss;
@@ -90,19 +103,32 @@ main (int argc, char **argv)
         // msg.data = ss.str();
 
         // cout << "\nPress Enter to Continue";
-        cin.ignore();
+        //
 
         number_PCDdone.data = pcd_index;
+        
 
         // ros::spin()
         //*** only when this is run, it will get to callback
+        // cout << "\nPress Enter To Capture Point Cloud\n";
+        // cin.ignore();
         ros::spinOnce();
 
-        // only publish data when having got data
-        if (gotDataFlag == 1){
-            pub.publish(number_PCDdone);
-            gotDataFlag = 0;
+        // Check if latest point cloud has been registered
+        // ROS_INFO("Point Cloud Registered: %d", pcl_registered_flag);
+        if (pcl_registered_flag == 1){
+          // only publish data when having got data
+          if (gotDataFlag == 1){
+              cout << "\nMove Table And Press Enter To Process Point Cloud\n";
+              cin.ignore();
+              ROS_INFO("Publishing Processed Point Cloud #%d", number_PCDdone.data);
+              pcl_registered_flag = 0;
+              pub.publish(number_PCDdone);
+              gotDataFlag = 0;
+              ++pcd_index;
+          }
         }
+        // ros::spinOnce();
         loop_rate.sleep();
     }
     return 0;
@@ -119,7 +145,7 @@ cloud_filter(pcl::PointCloud<PointT>::Ptr &cloud)
     pcl::PassThrough<PointT> passz;
     passz.setInputCloud (cloud);
     passz.setFilterFieldName ("z");
-    passz.setFilterLimits (0.35, 0.50);
+    passz.setFilterLimits (0.25, 0.75);
     // passz.setFilterLimits (0, 2.0);
 
     // passz.setFilterLimits (0.5, 1.5);
@@ -131,7 +157,7 @@ cloud_filter(pcl::PointCloud<PointT>::Ptr &cloud)
     pcl::PassThrough<PointT> passy;
     passy.setInputCloud (cloud_filtered);
     passy.setFilterFieldName ("y");
-    passy.setFilterLimits (-0.25, 0.15);
+    passy.setFilterLimits (-0.30, 0.10);
     // passy.setFilterLimits (-0.5, 0.5);
 
     // passy.setFilterLimits (-2.0, 2.0);

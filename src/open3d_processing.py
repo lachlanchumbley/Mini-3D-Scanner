@@ -7,6 +7,7 @@ import copy
 import open3d as o3d
 # from open3d.geometry import estimate_normals
 # from py3d import *
+import cv2
 
 from std_msgs.msg import Int64
 from geometry_msgs.msg import Vector3
@@ -36,18 +37,28 @@ class registerMulti:
         self.rotation_dir_init_flag = False
         self.sub_rotation_dir = rospy.Subscriber("plane_normal", Vector3, self.callback_dir, queue_size=10)
 
+        self.pub = rospy.Publisher('pcl_registered', Int64, queue_size=1)
+        # self.dir_done_sub= rospy.Subscriber('dir_done', Int64, self.callback_dir_done, queue_size=1)
+
+        self.register_step = 0
+        self.mesh_save_interval = 10
+
     def callback(self, num):
+        # Reset registered flag
+        self.pub.publish(0)
         self.cloud_index = num.data
+        print("Received Processed Point Cloud #" + str(self.cloud_index))
         self.registering()
 
     def callback_dir(self, temp_dir):
+        print("Dir Callback")
         self.rotation_dir = temp_dir
         self.rotation_dir_init_flag = True
 
     def clean_up(self, cloud_base):
         cloud_base, ind = cloud_base.remove_statistical_outlier(nb_neighbors=20, std_ratio=2.0)
 
-        cloud_base, ind = cloud_base.remove_radius_outlier(nb_points=16, radius=0.05)
+        # cloud_base, ind = cloud_base.remove_radius_outlier(nb_points=16, radius=0.05)
 
         return cloud_base
 
@@ -82,9 +93,13 @@ class registerMulti:
             # target_temp = copy.deepcopy(self.cloud1)
             # print("cloud1: ",id(self.cloud1))
 
+            # Clean up point cloud
+            # self.cloud1 = self.clean_up(self.cloud1)
 
             self.posLocalTrans = self.registerLocalCloudv2(self.cloud1, self.cloud2)
             # self.posLocalTrans = self.registerLocalCloud(self.cloud1, self.cloud2)
+
+            print("wait...")
 
             # if result is not good, drop it
             if self.goodResultFlag == True:
@@ -107,22 +122,51 @@ class registerMulti:
                 self.registrationCount += 1
                 # save PCD file to local
                 # o3d.visualization.draw_geometries([self.cloud_base])
+
+                # Clean up point cloud
+                # self.cloud_base = self.clean_up(self.cloud_base)
+
+                # Save segmented point cloud
+                seg_cloud_base = copy.deepcopy(self.cloud_base)
+
+                plane_model, inliers = seg_cloud_base.segment_plane(distance_threshold=0.01, ransac_n=3, num_iterations=1000)
+                outlier_cloud = seg_cloud_base.select_by_index(inliers, invert=True)
+
                 o3d.io.write_point_cloud("/home/lachlan/catkin_ws/src/scanner/data/result/registerResult.pcd", self.cloud_base ,write_ascii = False)
+                o3d.io.write_point_cloud("/home/lachlan/catkin_ws/src/scanner/data/result/registerResult.ply", self.cloud_base)
+                o3d.io.write_point_cloud("/home/lachlan/catkin_ws/src/scanner/data/result/registerResult.txt", self.cloud_base)
 
-                self.cloud_base = self.clean_up(self.cloud_base)
+                # if self.register_step % self.mesh_save_interval == 0:
+                #     self.save_mesh(self.cloud_base)
 
-                self.save_mesh(self.cloud_base)
+                self.register_step = self.register_step + 1
+
+                # # Pointcloud registered
+                # self.pub.publish(1)
             else:
+                # # Pointcloud registered
+                # self.pub.publish(1)
                 pass
+            # print("Press Enter To Continue")
 
         # the first cloud
         else:
+            print("Registering Base Point Cloud\n")
             self.cloud_base = o3d.io.read_point_cloud("/home/lachlan/catkin_ws/src/scanner/data/{}.pcd".format(self.cloud_index))
+
+            # Clean up point cloud
+            # self.cloud_base = self.clean_up(self.cloud_base)
+
             self.cloud1 = copy.deepcopy(self.cloud_base)
-            # o3d.visualization.draw_geometries([self.cloud_base])
+
             o3d.io.write_point_cloud("/home/lachlan/catkin_ws/src/scanner/data/result/registerResult.pcd", self.cloud_base ,write_ascii = False)
-            if (self.rotation_dir_init_flag == True):
-                self.initFlag = False
+            o3d.io.write_point_cloud("/home/lachlan/catkin_ws/src/scanner/data/result/registerResult.ply", self.cloud_base)
+            # if (self.rotation_dir_init_flag == True):
+            #     self.initFlag = False
+            self.initFlag = False
+            
+        # Pointcloud registered
+        self.pub.publish(1)
 
     def registerLocalCloud(self, target, source):
         '''
@@ -314,10 +358,6 @@ class registerMulti:
         source_temp = copy.deepcopy(source)
         source_temp.transform(transformation)
         o3d.visualization.draw_geometries([source_temp, target])
-                                        # zoom=0.5,
-                                        # front=[-0.2458, -0.8088, 0.5342],
-                                        # lookat=[1.7745, 2.2305, 0.9787],
-                                        # up=[0.3109, -0.5878, -0.7468])
 
     def registerLocalCloudv2(self, target, source):
         '''
@@ -330,54 +370,100 @@ class registerMulti:
         max_iter = [50, 30, 14]
         current_transformation = np.identity(4)
         # print("3. Colored point cloud registration")
-        for scale in range(3):
-            iter = max_iter[scale]
-            radius = voxel_radius[scale]
-            # print([iter, radius, scale])
+        # for scale in range(3):
+        scale = 1
+        iter = max_iter[scale]
+        radius = voxel_radius[scale]
+        # print([iter, radius, scale])
 
-            # print("3-1. Downsample with a voxel size %.2f" % radius)
-            source_down = source.voxel_down_sample(radius)
-            target_down = target.voxel_down_sample(radius)
+        # print("3-1. Downsample with a voxel size %.2f" % radius)
+        source_down = source.voxel_down_sample(radius)
+        target_down = target.voxel_down_sample(radius)
 
-            # print("3-2. Estimate normal.")
-            source_down.estimate_normals(
-                o3d.geometry.KDTreeSearchParamHybrid(radius=radius * 2, max_nn=30))
-            target_down.estimate_normals(
-                o3d.geometry.KDTreeSearchParamHybrid(radius=radius * 2, max_nn=30))
+        # print("3-2. Estimate normal.")
+        source_down.estimate_normals(
+            o3d.geometry.KDTreeSearchParamHybrid(radius=radius * 2, max_nn=30))
+        target_down.estimate_normals(
+            o3d.geometry.KDTreeSearchParamHybrid(radius=radius * 2, max_nn=30))
 
-            # print("3-3. Applying colored point cloud registration")
-            result_icp = o3d.pipelines.registration.registration_colored_icp(
-                source_down, target_down, radius, current_transformation,
-                o3d.pipelines.registration.TransformationEstimationForColoredICP(),
-                o3d.pipelines.registration.ICPConvergenceCriteria(relative_fitness=1e-6,
-                                                                relative_rmse=1e-6,
-                                                                max_iteration=iter))
-            current_transformation = result_icp.transformation
-            # print(result_icp)
+        # print("3-3. Applying colored point cloud registration")
+        result_icp = o3d.pipelines.registration.registration_colored_icp(
+            source_down, target_down, radius, current_transformation,
+            o3d.pipelines.registration.TransformationEstimationForColoredICP(),
+            o3d.pipelines.registration.ICPConvergenceCriteria(relative_fitness=1e-6, relative_rmse=1e-6, max_iteration=iter))
+
+        current_transformation = result_icp.transformation
 
         # self.draw_registration_result_original_color(source, target, result_icp.transformation)
 
-        # KICK OUT RULE 
+        ###### KICK OUT RULES #####
+        ### Fitness Score
         print("Fitness score: %f", result_icp.fitness)
 
-        if result_icp.fitness > 0.9:
-            print("GOOD")
+        if result_icp.fitness > 0.90:
+            print("Fitness: GOOD")
             self.goodResultFlag = True
-            print("Press Enter to continue")
             return current_transformation
         else:
-            print("\n !----------- BAD  -----------! \n")
+            print("Fitness: BAD")
             self.goodResultFlag = False
-            print("Press Enter to continue")
             return np.identity(4)
 
-        
+        ### Rotation:
+        # 1/ rotation is out of plane (5 degree, or 0.087266 in radians);
+        # 2/ too big rotation;
+        # 3/ too big translation;
+
+        # first calculate what is the rotation direction and rotation angle
+        tf = current_transformation
+        R = tf[:3,:3]  # rotation matrix
+        so3mat = MatrixLog3(R)
+        omg = so3ToVec(so3mat)
+        R_dir, theta = AxisAng3(omg) # rotation direction
+                # rotation angle (in radians)
+        theta_degree = theta / np.pi * 180 # in degree
+        angle_with_pl_norm = self.cal_angle(self.rotation_dir, R_dir)
+
+        trans_tol= 0.5  # transformation tolerance
+        rotation_tol = 30 # 30 degrees
+        # angle_with_pl_norm_tol = 0.087266 # in radians (= 5 degrees)
+        # angle_with_pl_norm_tol = 0.174533 # in radians (= 10 degrees)
+        angle_with_pl_norm_tol = 0.45 # in radians (= 20 degrees)
+        if ( tf[0,3] > trans_tol or tf[0,3] < -trans_tol or \
+            tf[1,3] > trans_tol or tf[1,3] < -trans_tol or \
+            tf[2,3] > trans_tol or tf[2,3] < -trans_tol ):
+            self.goodResultFlag = False
+            print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+            # print("here in 1 ")
+            rospy.logwarn('Something wrong with 1/ translation : (, turn back a little bit...')
+            rospy.logwarn('>> the translation is [{},{},{}]'.format(tf[0,3],tf[1,3],tf[2,3]))
+            return np.identity(4)
+        elif ( theta_degree > rotation_tol or \
+            theta_degree < - rotation_tol):
+            self.goodResultFlag = False
+            print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+            # print("here in 2 ")
+            rospy.logwarn('Something wrong with 2/ rotation angle : (, turn back a little bit...')
+            rospy.logwarn('>> the rotation angle is {} (in degrees)'.format(theta_degree))
+            return np.identity(4)
+        elif ( angle_with_pl_norm > angle_with_pl_norm_tol):
+            self.goodResultFlag = False
+            print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+            # print("here in 3 ")
+            print(" angle with pl norm")
+            print(angle_with_pl_norm)
+            rospy.logwarn('Something wrong with 3/ rotation axis : (, turn back a little bit...')
+            rospy.logwarn('>> the rotation axis is {} (in radians) with plane normal'.format(angle_with_pl_norm))
+            return np.identity(4)
+        else:
+            self.goodResultFlag = True
+            print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+            # print("here in 4 ")
+            return current_transformation
 
     def cal_angle(self,pl_norm, R_dir):
         angle_in_radians = \
-            np.arccos(
-                np.abs(pl_norm.x*R_dir[0]+ pl_norm.y*R_dir[1] + pl_norm.z*R_dir[2])
-                )
+            np.arccos(np.abs(pl_norm.x*R_dir[0]+ pl_norm.y*R_dir[1] + pl_norm.z*R_dir[2]))
 
         return angle_in_radians
 
